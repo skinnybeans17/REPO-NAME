@@ -10,7 +10,7 @@ const client = new Upload(process.env.S3_BUCKET, {
   aws: {
     path: 'pets/avatar',
     region: process.env.S3_REGION,
-    acl: 'public-read',
+    //acl: 'public-read',
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
   },
@@ -54,9 +54,9 @@ module.exports = (app) => {
             urlArray.pop();
             var url = urlArray.join('-');
             pet.avatarUrl = url;
-            pet.save();
           });
-
+          pet.save();
+          console.log(pet)
           res.send({ pet: pet });
         });
       } else {
@@ -97,23 +97,21 @@ module.exports = (app) => {
     });
   });
 
-  // SEARCH
-  app.get('/search', function (req, res) {
-    Pet
-      .find(
-          { $text : { $search : req.query.term } },
-          { score : { $meta: "textScore" } }
-      )
-      .sort({ score : { $meta : 'textScore' } })
-      .limit(20)
-      .exec(function(err, pets) {
-        if (err) { return res.status(400).send(err) }
+  // SEARCH PET
+  app.get('/search', (req, res) => {
 
-        if (req.header('Content-Type') == 'application/json') {
-          return res.json({ pets: pets });
-        } else {
-          return res.render('pets-index', { pets: pets, term: req.query.term });
-        }
+    const term = new RegExp(req.query.term, 'i')
+
+    const page = req.query.page || 1
+    Pet.paginate(
+      {
+        $or: [
+          { 'name': term },
+          { 'species': term }
+        ]
+      },
+      { page: page }).then((results) => {
+        res.render('pets-index', { pets: results.docs, pagesCount: results.pages, currentPage: page, term: req.query.term });
       });
   });
 
